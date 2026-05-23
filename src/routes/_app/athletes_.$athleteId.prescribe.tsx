@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { getAthlete, SPORT_LABEL, type Sport, type Athlete } from "@/lib/athletes-data";
 
-export const Route = createFileRoute("/_app/athletes/$athleteId/prescribe")({
+export const Route = createFileRoute("/_app/athletes_/$athleteId/prescribe")({
   component: PrescribePage,
 });
 

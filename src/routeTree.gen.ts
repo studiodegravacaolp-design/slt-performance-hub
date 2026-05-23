@@ -16,7 +16,7 @@ import { Route as AppWorkoutsRouteImport } from './routes/_app/workouts'
 import { Route as AppOrganizationsRouteImport } from './routes/_app/organizations'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAthletesRouteImport } from './routes/_app/athletes'
-import { Route as AppAthletesAthleteIdPrescribeRouteImport } from './routes/_app/athletes.$athleteId.prescribe'
+import { Route as AppAthletesAthleteIdPrescribeRouteImport } from './routes/_app/athletes_.$athleteId.prescribe'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -54,15 +54,15 @@ const AppAthletesRoute = AppAthletesRouteImport.update({
 } as any)
 const AppAthletesAthleteIdPrescribeRoute =
   AppAthletesAthleteIdPrescribeRouteImport.update({
-    id: '/$athleteId/prescribe',
-    path: '/$athleteId/prescribe',
-    getParentRoute: () => AppAthletesRoute,
+    id: '/athletes_/$athleteId/prescribe',
+    path: '/athletes/$athleteId/prescribe',
+    getParentRoute: () => AppRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/athletes': typeof AppAthletesRouteWithChildren
+  '/athletes': typeof AppAthletesRoute
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
@@ -71,7 +71,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/athletes': typeof AppAthletesRouteWithChildren
+  '/athletes': typeof AppAthletesRoute
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
@@ -82,11 +82,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/athletes': typeof AppAthletesRouteWithChildren
+  '/_app/athletes': typeof AppAthletesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/organizations': typeof AppOrganizationsRoute
   '/_app/workouts': typeof AppWorkoutsRoute
-  '/_app/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
+  '/_app/athletes_/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,7 +116,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/organizations'
     | '/_app/workouts'
-    | '/_app/athletes/$athleteId/prescribe'
+    | '/_app/athletes_/$athleteId/prescribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,40 +176,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAthletesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/athletes/$athleteId/prescribe': {
-      id: '/_app/athletes/$athleteId/prescribe'
-      path: '/$athleteId/prescribe'
+    '/_app/athletes_/$athleteId/prescribe': {
+      id: '/_app/athletes_/$athleteId/prescribe'
+      path: '/athletes/$athleteId/prescribe'
       fullPath: '/athletes/$athleteId/prescribe'
       preLoaderRoute: typeof AppAthletesAthleteIdPrescribeRouteImport
-      parentRoute: typeof AppAthletesRoute
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface AppAthletesRouteChildren {
-  AppAthletesAthleteIdPrescribeRoute: typeof AppAthletesAthleteIdPrescribeRoute
-}
-
-const AppAthletesRouteChildren: AppAthletesRouteChildren = {
-  AppAthletesAthleteIdPrescribeRoute: AppAthletesAthleteIdPrescribeRoute,
-}
-
-const AppAthletesRouteWithChildren = AppAthletesRoute._addFileChildren(
-  AppAthletesRouteChildren,
-)
-
 interface AppRouteChildren {
-  AppAthletesRoute: typeof AppAthletesRouteWithChildren
+  AppAthletesRoute: typeof AppAthletesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppOrganizationsRoute: typeof AppOrganizationsRoute
   AppWorkoutsRoute: typeof AppWorkoutsRoute
+  AppAthletesAthleteIdPrescribeRoute: typeof AppAthletesAthleteIdPrescribeRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAthletesRoute: AppAthletesRouteWithChildren,
+  AppAthletesRoute: AppAthletesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppOrganizationsRoute: AppOrganizationsRoute,
   AppWorkoutsRoute: AppWorkoutsRoute,
+  AppAthletesAthleteIdPrescribeRoute: AppAthletesAthleteIdPrescribeRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -222,3 +212,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
