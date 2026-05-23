@@ -139,7 +139,7 @@ function AthletesPage() {
                           size="sm"
                           variant="ghost"
                           className="text-accent hover:bg-accent/10 hover:text-accent"
-                          onClick={() => toast("Editor de periodização em breve", { description: `Prescrever para ${a.nome}` })}
+                          onClick={() => prescrever(a)}
                         >
                           <Dumbbell className="mr-1.5 h-3.5 w-3.5" /> Prescrever
                         </Button>
