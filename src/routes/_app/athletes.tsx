@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -197,8 +197,7 @@ function AthleteFormDialog({
   const [altura, setAltura] = useState(editing?.altura?.toString() ?? "175");
   const [peso, setPeso] = useState(editing?.peso?.toString() ?? "70");
 
-  // re-sync on editing change
-  useMemo(() => {
+  useEffect(() => {
     setNome(editing?.nome ?? "");
     setEmail(editing?.email ?? "");
     setPlano(editing?.plano ?? "Ativo");
