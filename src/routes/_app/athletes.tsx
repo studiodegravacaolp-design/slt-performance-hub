@@ -173,7 +173,7 @@ function AthletesPage() {
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">{a.altura} cm · {a.peso} kg · avaliação {a.ultimaAvaliacao}</p>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => toast("Editor em breve")}>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => prescrever(a)}>
                     <Dumbbell className="mr-1.5 h-3.5 w-3.5" /> Prescrever
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>
