@@ -30,7 +30,18 @@ const planColors: Record<PlanStatus, string> = {
   Pausado: "bg-warning/15 text-warning border-warning/30",
 };
 
+type FormData = {
+  id?: string;
+  nome: string;
+  email: string;
+  plano: PlanStatus;
+  altura: number;
+  peso: number;
+  modalidade: Sport;
+};
+
 function AthletesPage() {
+  const navigate = useNavigate();
   const [list, setList] = useState<Athlete[]>(SEED);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Athlete | null>(null);
@@ -43,13 +54,25 @@ function AthletesPage() {
 
   const openNew = () => { setEditing(null); setOpen(true); };
   const openEdit = (a: Athlete) => { setEditing(a); setOpen(true); };
+  const prescrever = (a: Athlete) =>
+    navigate({ to: "/athletes/$athleteId/prescribe", params: { athleteId: a.id } });
 
-  const handleSave = (data: Omit<Athlete, "id" | "ultimaAvaliacao"> & { id?: string }) => {
+  const handleSave = (data: FormData) => {
     if (data.id) {
-      setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } as Athlete : x)));
+      setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
       toast.success("Atleta atualizado");
     } else {
-      const novo: Athlete = { ...data, id: crypto.randomUUID(), ultimaAvaliacao: "—" };
+      const novo: Athlete = {
+        ...data,
+        id: crypto.randomUUID(),
+        ultimaAvaliacao: "—",
+        telemetria: [
+          { label: "Sem 1", valor: 0 },
+          { label: "Sem 2", valor: 0 },
+        ],
+        metricaLabel: "Métrica principal",
+        metricaUnidade: "—",
+      };
       setList((l) => [novo, ...l]);
       toast.success("Atleta cadastrado");
     }
