@@ -16,6 +16,7 @@ import { Route as AppWorkoutsRouteImport } from './routes/_app/workouts'
 import { Route as AppOrganizationsRouteImport } from './routes/_app/organizations'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAthletesRouteImport } from './routes/_app/athletes'
+import { Route as AppAthletesAthleteIdPrescribeRouteImport } from './routes/_app/athletes_.$athleteId.prescribe'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -51,6 +52,12 @@ const AppAthletesRoute = AppAthletesRouteImport.update({
   path: '/athletes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAthletesAthleteIdPrescribeRoute =
+  AppAthletesAthleteIdPrescribeRouteImport.update({
+    id: '/athletes_/$athleteId/prescribe',
+    path: '/athletes/$athleteId/prescribe',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
+  '/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +75,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
+  '/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +86,7 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/organizations': typeof AppOrganizationsRoute
   '/_app/workouts': typeof AppWorkoutsRoute
+  '/_app/athletes_/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations'
     | '/workouts'
+    | '/athletes/$athleteId/prescribe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations'
     | '/workouts'
+    | '/athletes/$athleteId/prescribe'
   id:
     | '__root__'
     | '/'
@@ -104,6 +116,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/organizations'
     | '/_app/workouts'
+    | '/_app/athletes_/$athleteId/prescribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -163,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAthletesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/athletes_/$athleteId/prescribe': {
+      id: '/_app/athletes_/$athleteId/prescribe'
+      path: '/athletes/$athleteId/prescribe'
+      fullPath: '/athletes/$athleteId/prescribe'
+      preLoaderRoute: typeof AppAthletesAthleteIdPrescribeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -171,6 +191,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppOrganizationsRoute: typeof AppOrganizationsRoute
   AppWorkoutsRoute: typeof AppWorkoutsRoute
+  AppAthletesAthleteIdPrescribeRoute: typeof AppAthletesAthleteIdPrescribeRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -178,6 +199,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppOrganizationsRoute: AppOrganizationsRoute,
   AppWorkoutsRoute: AppWorkoutsRoute,
+  AppAthletesAthleteIdPrescribeRoute: AppAthletesAthleteIdPrescribeRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -190,3 +212,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
