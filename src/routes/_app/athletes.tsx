@@ -192,13 +192,14 @@ function AthleteFormDialog({
   editing, onSave,
 }: {
   editing: Athlete | null;
-  onSave: (data: Omit<Athlete, "ultimaAvaliacao"> & { ultimaAvaliacao?: string }) => void;
+  onSave: (data: FormData) => void;
 }) {
   const [nome, setNome] = useState(editing?.nome ?? "");
   const [email, setEmail] = useState(editing?.email ?? "");
   const [plano, setPlano] = useState<PlanStatus>(editing?.plano ?? "Ativo");
   const [altura, setAltura] = useState(editing?.altura?.toString() ?? "175");
   const [peso, setPeso] = useState(editing?.peso?.toString() ?? "70");
+  const [modalidade, setModalidade] = useState<Sport>(editing?.modalidade ?? "musculacao");
 
   useEffect(() => {
     setNome(editing?.nome ?? "");
@@ -206,6 +207,7 @@ function AthleteFormDialog({
     setPlano(editing?.plano ?? "Ativo");
     setAltura(editing?.altura?.toString() ?? "175");
     setPeso(editing?.peso?.toString() ?? "70");
+    setModalidade(editing?.modalidade ?? "musculacao");
   }, [editing]);
 
   const submit = (e: React.FormEvent) => {
@@ -215,12 +217,13 @@ function AthleteFormDialog({
       return;
     }
     onSave({
-      id: editing?.id as string,
+      id: editing?.id,
       nome,
       email,
       plano,
       altura: Number(altura),
       peso: Number(peso),
+      modalidade,
     });
   };
 
@@ -237,6 +240,17 @@ function AthleteFormDialog({
         <div className="space-y-2">
           <Label>E-mail</Label>
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@dominio.com" />
+        </div>
+        <div className="space-y-2">
+          <Label>Modalidade</Label>
+          <Select value={modalidade} onValueChange={(v) => setModalidade(v as Sport)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.keys(SPORT_LABEL) as Sport[]).map((s) => (
+                <SelectItem key={s} value={s}>{SPORT_LABEL[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2 col-span-1">
@@ -266,3 +280,4 @@ function AthleteFormDialog({
     </DialogContent>
   );
 }
+
