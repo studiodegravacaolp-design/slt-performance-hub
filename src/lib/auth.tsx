@@ -39,19 +39,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, _password: string) => {
     await new Promise((r) => setTimeout(r, 600));
     const mock: AuthUser = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `user-${Date.now()}`,
       email,
       name: email.split("@")[0].replace(/\W/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       role: "admin",
       tenantId: "00000000-0000-4000-8000-000000000001",
       tenantName: "Elite Performance Club",
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mock));
+    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, JSON.stringify(mock));
     setUser(mock);
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
     setUser(null);
   };
 
