@@ -16,6 +16,7 @@ import { Route as AppWorkoutsRouteImport } from './routes/_app/workouts'
 import { Route as AppOrganizationsRouteImport } from './routes/_app/organizations'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAthletesRouteImport } from './routes/_app/athletes'
+import { Route as AppAthletesAthleteIdPrescribeRouteImport } from './routes/_app/athletes.$athleteId.prescribe'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -51,32 +52,41 @@ const AppAthletesRoute = AppAthletesRouteImport.update({
   path: '/athletes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAthletesAthleteIdPrescribeRoute =
+  AppAthletesAthleteIdPrescribeRouteImport.update({
+    id: '/$athleteId/prescribe',
+    path: '/$athleteId/prescribe',
+    getParentRoute: () => AppAthletesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/athletes': typeof AppAthletesRoute
+  '/athletes': typeof AppAthletesRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
+  '/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/athletes': typeof AppAthletesRoute
+  '/athletes': typeof AppAthletesRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
   '/organizations': typeof AppOrganizationsRoute
   '/workouts': typeof AppWorkoutsRoute
+  '/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/athletes': typeof AppAthletesRoute
+  '/_app/athletes': typeof AppAthletesRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/organizations': typeof AppOrganizationsRoute
   '/_app/workouts': typeof AppWorkoutsRoute
+  '/_app/athletes/$athleteId/prescribe': typeof AppAthletesAthleteIdPrescribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations'
     | '/workouts'
+    | '/athletes/$athleteId/prescribe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations'
     | '/workouts'
+    | '/athletes/$athleteId/prescribe'
   id:
     | '__root__'
     | '/'
@@ -104,6 +116,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/organizations'
     | '/_app/workouts'
+    | '/_app/athletes/$athleteId/prescribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -163,18 +176,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAthletesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/athletes/$athleteId/prescribe': {
+      id: '/_app/athletes/$athleteId/prescribe'
+      path: '/$athleteId/prescribe'
+      fullPath: '/athletes/$athleteId/prescribe'
+      preLoaderRoute: typeof AppAthletesAthleteIdPrescribeRouteImport
+      parentRoute: typeof AppAthletesRoute
+    }
   }
 }
 
+interface AppAthletesRouteChildren {
+  AppAthletesAthleteIdPrescribeRoute: typeof AppAthletesAthleteIdPrescribeRoute
+}
+
+const AppAthletesRouteChildren: AppAthletesRouteChildren = {
+  AppAthletesAthleteIdPrescribeRoute: AppAthletesAthleteIdPrescribeRoute,
+}
+
+const AppAthletesRouteWithChildren = AppAthletesRoute._addFileChildren(
+  AppAthletesRouteChildren,
+)
+
 interface AppRouteChildren {
-  AppAthletesRoute: typeof AppAthletesRoute
+  AppAthletesRoute: typeof AppAthletesRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
   AppOrganizationsRoute: typeof AppOrganizationsRoute
   AppWorkoutsRoute: typeof AppWorkoutsRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAthletesRoute: AppAthletesRoute,
+  AppAthletesRoute: AppAthletesRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
   AppOrganizationsRoute: AppOrganizationsRoute,
   AppWorkoutsRoute: AppWorkoutsRoute,
