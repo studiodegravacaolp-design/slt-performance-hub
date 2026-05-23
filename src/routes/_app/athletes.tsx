@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,33 +16,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ATHLETES, SPORT_LABEL, type Athlete, type PlanStatus, type Sport } from "@/lib/athletes-data";
 
 export const Route = createFileRoute("/_app/athletes")({
   component: AthletesPage,
 });
 
-type PlanStatus = "Ativo" | "Inadimplente" | "Pausado";
-
-interface Athlete {
-  id: string;
-  nome: string;
-  email: string;
-  plano: PlanStatus;
-  altura: number;
-  peso: number;
-  ultimaAvaliacao: string;
-}
-
-const SEED: Athlete[] = [
-  { id: "1", nome: "Maria Souza", email: "maria@club.com", plano: "Ativo", altura: 168, peso: 62, ultimaAvaliacao: "12/05" },
-  { id: "2", nome: "João Pereira", email: "joao@club.com", plano: "Ativo", altura: 182, peso: 84, ultimaAvaliacao: "08/05" },
-  { id: "3", nome: "Ana Lima", email: "ana@club.com", plano: "Inadimplente", altura: 165, peso: 58, ultimaAvaliacao: "02/04" },
-  { id: "4", nome: "Pedro Alves", email: "pedro@club.com", plano: "Pausado", altura: 178, peso: 79, ultimaAvaliacao: "20/03" },
-  { id: "5", nome: "Clara Mendes", email: "clara@club.com", plano: "Ativo", altura: 170, peso: 64, ultimaAvaliacao: "15/05" },
-  { id: "6", nome: "Rafael Costa", email: "rafa@club.com", plano: "Ativo", altura: 185, peso: 88, ultimaAvaliacao: "11/05" },
-  { id: "7", nome: "Beatriz Rocha", email: "bia@club.com", plano: "Inadimplente", altura: 162, peso: 55, ultimaAvaliacao: "28/03" },
-  { id: "8", nome: "Lucas Martins", email: "lucas@club.com", plano: "Ativo", altura: 176, peso: 75, ultimaAvaliacao: "13/05" },
-];
+const SEED: Athlete[] = ATHLETES;
 
 const planColors: Record<PlanStatus, string> = {
   Ativo: "bg-success/15 text-success border-success/30",
