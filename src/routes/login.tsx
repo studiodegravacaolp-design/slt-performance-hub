@@ -21,22 +21,29 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginPage() {
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "admin@slt.tech", password: "demo1234" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      await login(data.email, data.password);
-      toast.success("Autenticado com sucesso");
-      navigate({ to: "/dashboard" });
-    } catch {
-      toast.error("Falha ao autenticar");
+      if (mode === "signup") {
+        await signup(data.email, data.password);
+        toast.success("Conta criada. Faça login para continuar.");
+        setMode("login");
+      } else {
+        await login(data.email, data.password);
+        toast.success("Autenticado com sucesso");
+        navigate({ to: "/dashboard" });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha na autenticação");
     } finally {
       setSubmitting(false);
     }
