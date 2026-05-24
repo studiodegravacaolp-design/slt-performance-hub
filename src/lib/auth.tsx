@@ -21,7 +21,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function toUser(session: Session | null): AuthUser | null {
+function baseUser(session: Session | null): AuthUser | null {
   if (!session?.user) return null;
   const email = session.user.email ?? "";
   return {
@@ -34,20 +34,35 @@ function toUser(session: Session | null): AuthUser | null {
   };
 }
 
+async function hydrateOrg(u: AuthUser): Promise<AuthUser> {
+  const { data } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("owner_id", u.id)
+    .maybeSingle();
+  return data?.name ? { ...u, tenantName: data.name } : u;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const apply = (session: Session | null) => {
+      const u = baseUser(session);
+      setUser(u);
+      if (u) hydrateOrg(u).then(setUser);
+    };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(toUser(session));
+      apply(session);
     });
     supabase.auth.getSession().then(({ data }) => {
-      setUser(toUser(data.session));
+      apply(data.session);
       setLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);
+
 
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
