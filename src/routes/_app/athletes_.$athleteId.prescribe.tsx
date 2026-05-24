@@ -405,10 +405,11 @@ function PrescribePage() {
 
           <div className="flex justify-end pt-2">
             <Button
-              onClick={() => toast.success("Prescrição salva no prontuário")}
+              onClick={savePrescription}
+              disabled={saving}
               className="shadow-glow"
             >
-              Salvar prescrição
+              {saving ? "Salvando..." : "Salvar prescrição"}
             </Button>
           </div>
         </CardContent>
