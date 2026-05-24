@@ -36,6 +36,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { getAthlete, SPORT_LABEL, type Sport, type Athlete } from "@/lib/athletes-data";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/athletes_/$athleteId/prescribe")({
   component: PrescribePage,
@@ -87,12 +89,35 @@ function PrescribePage() {
   const Icon = SPORT_ICON[athlete.modalidade];
   const tone = SPORT_TONE[athlete.modalidade];
 
+  const { user } = useAuth();
   const [aiLoading, setAiLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiFocus, setAiFocus] = useState<string[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([
     { id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" },
   ]);
+
+  const savePrescription = async () => {
+    if (!user) {
+      toast.error("Você precisa estar autenticado para salvar.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("workouts").insert({
+      tenant_id: user.tenantId,
+      athlete_id: athlete.id,
+      sport: athlete.modalidade,
+      title: `Prescrição — ${athlete.nome}`,
+      blocks: blocks as unknown as never,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(`Falha ao salvar: ${error.message}`);
+      return;
+    }
+    toast.success("Prescrição salva no banco de dados");
+  };
 
   const trend = useMemo(() => {
     const first = athlete.telemetria[0]?.valor ?? 0;
@@ -380,10 +405,11 @@ function PrescribePage() {
 
           <div className="flex justify-end pt-2">
             <Button
-              onClick={() => toast.success("Prescrição salva no prontuário")}
+              onClick={savePrescription}
+              disabled={saving}
               className="shadow-glow"
             >
-              Salvar prescrição
+              {saving ? "Salvando..." : "Salvar prescrição"}
             </Button>
           </div>
         </CardContent>
