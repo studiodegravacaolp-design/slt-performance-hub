@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Users, TrendingUp, Dumbbell, CheckCircle2 } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { ActivityFeed } from "@/components/ActivityFeed";
@@ -12,6 +13,8 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: DashboardPage,
@@ -28,6 +31,33 @@ const chartData = [
 ];
 
 function DashboardPage() {
+  const { user } = useAuth();
+  const [totalAth, setTotalAth] = useState<number | null>(null);
+  const [ativos, setAtivos] = useState<number | null>(null);
+  const [inadimplentes, setInadimplentes] = useState<number | null>(null);
+  const [totalWk, setTotalWk] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [all, act, ina, wk] = await Promise.all([
+        supabase.from("athletes").select("id", { count: "exact", head: true }),
+        supabase.from("athletes").select("id", { count: "exact", head: true }).eq("plano", "Ativo"),
+        supabase.from("athletes").select("id", { count: "exact", head: true }).eq("plano", "Inadimplente"),
+        supabase.from("workouts").select("id", { count: "exact", head: true }),
+      ]);
+      setTotalAth(all.count ?? 0);
+      setAtivos(act.count ?? 0);
+      setInadimplentes(ina.count ?? 0);
+      setTotalWk(wk.count ?? 0);
+    })();
+  }, [user]);
+
+  const fmt = (n: number | null) => (n === null ? "…" : n.toLocaleString("pt-BR"));
+  const adimplencia = totalAth && totalAth > 0
+    ? `${(((totalAth - (inadimplentes ?? 0)) / totalAth) * 100).toFixed(1)}%`
+    : "…";
+
   return (
     <div className="space-y-6">
       <div>
@@ -36,11 +66,12 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Atletas ativos" value="284" delta={12} hint="vs. mês anterior" icon={Users} accent="primary" />
-        <StatCard label="Taxa de adimplência" value="94,2%" delta={2.1} hint="últimos 30 dias" icon={TrendingUp} accent="success" />
-        <StatCard label="Treinos prescritos" value="1.428" delta={8} hint="mês corrente" icon={Dumbbell} accent="accent" />
+        <StatCard label="Atletas ativos" value={fmt(ativos)} delta={12} hint={`${fmt(totalAth)} no total`} icon={Users} accent="primary" />
+        <StatCard label="Taxa de adimplência" value={adimplencia} delta={2.1} hint="planos ativos" icon={TrendingUp} accent="success" />
+        <StatCard label="Treinos prescritos" value={fmt(totalWk)} delta={8} hint="histórico do tenant" icon={Dumbbell} accent="accent" />
         <StatCard label="Sessões concluídas" value="3.812" delta={-3} hint="últimos 7 dias" icon={CheckCircle2} accent="warning" />
       </div>
+
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-border/60 bg-card/60 lg:col-span-2">

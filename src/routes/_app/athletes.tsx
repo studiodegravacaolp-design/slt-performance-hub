@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Dumbbell, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +16,20 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ATHLETES, SPORT_LABEL, type Athlete, type PlanStatus, type Sport } from "@/lib/athletes-data";
+import {
+  SPORT_LABEL,
+  rowToAthlete,
+  type Athlete,
+  type AthleteRow,
+  type PlanStatus,
+  type Sport,
+} from "@/lib/athletes-data";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/athletes")({
   component: AthletesPage,
 });
-
-const SEED: Athlete[] = ATHLETES;
 
 const planColors: Record<PlanStatus, string> = {
   Ativo: "bg-success/15 text-success border-success/30",
@@ -42,10 +49,29 @@ type FormData = {
 
 function AthletesPage() {
   const navigate = useNavigate();
-  const [list, setList] = useState<Athlete[]>(SEED);
+  const { user } = useAuth();
+  const [list, setList] = useState<Athlete[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Athlete | null>(null);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("athletes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!active) return;
+      if (error) toast.error(`Falha ao carregar: ${error.message}`);
+      setList(((data ?? []) as AthleteRow[]).map(rowToAthlete));
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [user]);
 
   const filtered = useMemo(
     () => list.filter((a) => a.nome.toLowerCase().includes(q.toLowerCase()) || a.email.includes(q.toLowerCase())),
@@ -57,29 +83,39 @@ function AthletesPage() {
   const prescrever = (a: Athlete) =>
     navigate({ to: "/athletes/$athleteId/prescribe", params: { athleteId: a.id } });
 
-  const handleSave = (data: FormData) => {
+  const handleSave = async (data: FormData) => {
     if (data.id) {
+      const { error } = await supabase
+        .from("athletes")
+        .update({
+          nome: data.nome, email: data.email, plano: data.plano,
+          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+        })
+        .eq("id", data.id);
+      if (error) return toast.error(error.message);
       setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
       toast.success("Atleta atualizado");
     } else {
-      const novo: Athlete = {
-        ...data,
-        id: crypto.randomUUID(),
-        ultimaAvaliacao: "—",
-        telemetria: [
-          { label: "Sem 1", valor: 0 },
-          { label: "Sem 2", valor: 0 },
-        ],
-        metricaLabel: "Métrica principal",
-        metricaUnidade: "—",
-      };
-      setList((l) => [novo, ...l]);
+      const { data: row, error } = await supabase
+        .from("athletes")
+        .insert({
+          nome: data.nome, email: data.email, plano: data.plano,
+          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+          metrica_label: "Métrica principal", metrica_unidade: "—",
+          telemetria: [{ label: "Sem 1", valor: 0 }, { label: "Sem 2", valor: 0 }] as unknown as never,
+        })
+        .select()
+        .single();
+      if (error || !row) return toast.error(error?.message ?? "Falha ao cadastrar");
+      setList((l) => [rowToAthlete(row as AthleteRow), ...l]);
       toast.success("Atleta cadastrado");
     }
     setOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("athletes").delete().eq("id", id);
+    if (error) return toast.error(error.message);
     setList((l) => l.filter((x) => x.id !== id));
     toast.success("Atleta removido");
   };
@@ -90,7 +126,7 @@ function AthletesPage() {
         <div>
           <h2 className="font-display text-2xl font-semibold tracking-tight">Gestão de atletas</h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} atleta{filtered.length === 1 ? "" : "s"} no tenant atual.
+            {loading ? "Carregando..." : `${filtered.length} atleta${filtered.length === 1 ? "" : "s"} no tenant atual.`}
           </p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -111,6 +147,12 @@ function AthletesPage() {
 
       <Card className="border-border/60 bg-card/60">
         <CardContent className="p-0">
+          {loading ? (
+            <div className="grid place-items-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : (
+            <>
           <div className="hidden md:block">
             <Table>
               <TableHeader>
@@ -160,7 +202,6 @@ function AthletesPage() {
             </Table>
           </div>
 
-          {/* Mobile cards */}
           <div className="space-y-3 p-3 md:hidden">
             {filtered.map((a) => (
               <div key={a.id} className="rounded-lg border border-border/60 p-3">
@@ -182,6 +223,8 @@ function AthletesPage() {
               </div>
             ))}
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -280,4 +323,3 @@ function AthleteFormDialog({
     </DialogContent>
   );
 }
-

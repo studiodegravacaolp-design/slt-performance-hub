@@ -35,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { getAthlete, SPORT_LABEL, type Sport, type Athlete } from "@/lib/athletes-data";
+import { SPORT_LABEL, rowToAthlete, type Sport, type Athlete, type AthleteRow } from "@/lib/athletes-data";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -71,7 +71,40 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 function PrescribePage() {
   const { athleteId } = Route.useParams();
   const navigate = useNavigate();
-  const athlete = getAthlete(athleteId);
+  const { user } = useAuth();
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from("athletes")
+        .select("*")
+        .eq("id", athleteId)
+        .maybeSingle();
+      if (!active) return;
+      setAthlete(data ? rowToAthlete(data as AthleteRow) : null);
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [athleteId]);
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiFocus, setAiFocus] = useState<string[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([
+    { id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" },
+  ]);
+
+  if (loading) {
+    return (
+      <div className="grid place-items-center py-24 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
 
   if (!athlete) {
     return (
@@ -89,14 +122,6 @@ function PrescribePage() {
   const Icon = SPORT_ICON[athlete.modalidade];
   const tone = SPORT_TONE[athlete.modalidade];
 
-  const { user } = useAuth();
-  const [aiLoading, setAiLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [aiFocus, setAiFocus] = useState<string[]>([]);
-  const [blocks, setBlocks] = useState<Block[]>([
-    { id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" },
-  ]);
 
   const savePrescription = async () => {
     if (!user) {
