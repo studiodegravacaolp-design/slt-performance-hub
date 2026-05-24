@@ -109,7 +109,7 @@ function PrescribePage() {
       athlete_id: athlete.id,
       sport: athlete.modalidade,
       title: `Prescrição — ${athlete.nome}`,
-      blocks: blocks as unknown as object,
+      blocks: blocks as unknown as never,
     });
     setSaving(false);
     if (error) {
