@@ -104,11 +104,18 @@ function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full shadow-glow" disabled={submitting}>
-              {submitting ? "Autenticando..." : "Entrar"}
+              {submitting ? "Processando..." : mode === "signup" ? "Criar conta" : "Entrar"}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              MVP — autenticação JWT multi-tenant simulada
+              {mode === "signup" ? "Já tem conta?" : "Ainda não tem conta?"}{" "}
+              <button
+                type="button"
+                onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                className="text-accent hover:underline"
+              >
+                {mode === "signup" ? "Entrar" : "Criar conta"}
+              </button>
             </p>
           </form>
         </div>
