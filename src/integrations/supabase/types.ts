@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      workouts: {
+        Row: {
+          athlete_id: string
+          blocks: Json
+          created_at: string
+          id: string
+          sport: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          blocks?: Json
+          created_at?: string
+          id?: string
+          sport: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          blocks?: Json
+          created_at?: string
+          id?: string
+          sport?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
