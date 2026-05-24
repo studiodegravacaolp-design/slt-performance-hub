@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      athletes: {
+        Row: {
+          altura: number
+          classificacao: string | null
+          created_at: string
+          email: string
+          id: string
+          metrica_label: string | null
+          metrica_unidade: string | null
+          modalidade: string
+          nome: string
+          peso: number
+          plano: string
+          restricoes: string | null
+          telemetria: Json
+          tenant_id: string
+          ultima_avaliacao: string | null
+          updated_at: string
+        }
+        Insert: {
+          altura?: number
+          classificacao?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          metrica_label?: string | null
+          metrica_unidade?: string | null
+          modalidade?: string
+          nome: string
+          peso?: number
+          plano?: string
+          restricoes?: string | null
+          telemetria?: Json
+          tenant_id?: string
+          ultima_avaliacao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          altura?: number
+          classificacao?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          metrica_label?: string | null
+          metrica_unidade?: string | null
+          modalidade?: string
+          nome?: string
+          peso?: number
+          plano?: string
+          restricoes?: string | null
+          telemetria?: Json
+          tenant_id?: string
+          ultima_avaliacao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workouts: {
         Row: {
           athlete_id: string
@@ -52,7 +133,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      seed_user_data: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
