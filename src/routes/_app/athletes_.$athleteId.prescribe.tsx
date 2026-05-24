@@ -36,6 +36,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { getAthlete, SPORT_LABEL, type Sport, type Athlete } from "@/lib/athletes-data";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/athletes_/$athleteId/prescribe")({
   component: PrescribePage,
