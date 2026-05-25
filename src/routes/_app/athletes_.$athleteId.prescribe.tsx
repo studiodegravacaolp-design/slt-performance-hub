@@ -77,6 +77,7 @@ function PrescribePage() {
   const [loading, setLoading] = useState(true);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [blocksWarning, setBlocksWarning] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ function PrescribePage() {
       setLoading(true);
       setLoadingBlocks(true);
       setLoadError(null);
+      setBlocksWarning(null);
       setProfileError(null);
 
       try {
@@ -133,7 +135,7 @@ function PrescribePage() {
 
         if (workoutError) {
           setBlocks([{ id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" }]);
-          setLoadError((current) => current ?? `Treino anterior indisponível: ${workoutError.message}`);
+          setBlocksWarning(`Treino anterior indisponível: ${workoutError.message}`);
           return;
         }
 
@@ -518,6 +520,11 @@ function PrescribePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
+          {blocksWarning && (
+            <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+              {blocksWarning}
+            </div>
+          )}
           {loadingBlocks && (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, index) => (
