@@ -57,7 +57,7 @@ export async function getVerifiedUserProfile() {
       id: authData.user.id,
       email: baseEmail,
       name: prettifyUserName(baseEmail),
-      role: "admin",
+      role: "admin" as const,
       tenantId: authData.user.id,
       tenantName: "Elite Performance Club",
     };
@@ -87,7 +87,7 @@ export async function getVerifiedUserProfile() {
         id: authData.user.id,
         email: profile.email ?? baseEmail,
         name: profile.display_name ?? prettifyUserName(profile.email ?? baseEmail),
-        role: "admin",
+        role: "admin" as const,
         tenantId: profile.tenant_id,
         tenantName: orgError ? fallbackUser.tenantName : (orgData?.name ?? fallbackUser.tenantName),
       },
