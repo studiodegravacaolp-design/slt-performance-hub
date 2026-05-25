@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Dumbbell, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,8 @@ import {
   type Sport,
 } from "@/lib/athletes-data";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_app/athletes")({
   component: AthletesPage,
@@ -52,23 +53,58 @@ function AthletesPage() {
   const { user } = useAuth();
   const [list, setList] = useState<Athlete[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Athlete | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setList([]);
+      setLoading(false);
+      return;
+    }
+
     let active = true;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("athletes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!active) return;
-      if (error) toast.error(`Falha ao carregar: ${error.message}`);
-      setList(((data ?? []) as AthleteRow[]).map(rowToAthlete));
-      setLoading(false);
+      setLoadError(null);
+
+      try {
+        const verified = await getVerifiedUserProfile();
+        if (!active) return;
+
+        if (!verified.user || !verified.profile?.tenant_id) {
+          setList([]);
+          setLoadError(verified.error ?? "Sessão inválida para carregar atletas.");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("athletes")
+          .select("*")
+          .eq("tenant_id", verified.profile.tenant_id)
+          .order("created_at", { ascending: false });
+
+        if (!active) return;
+
+        if (error) {
+          setList([]);
+          setLoadError(error.message);
+          toast.error(`Falha ao carregar atletas: ${error.message}`);
+          return;
+        }
+
+        setList(((data ?? []) as AthleteRow[]).map(rowToAthlete));
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Não foi possível carregar os atletas.";
+        setList([]);
+        setLoadError(message);
+        toast.error(message);
+      } finally {
+        if (active) setLoading(false);
+      }
     })();
     return () => { active = false; };
   }, [user]);
@@ -80,44 +116,85 @@ function AthletesPage() {
 
   const openNew = () => { setEditing(null); setOpen(true); };
   const openEdit = (a: Athlete) => { setEditing(a); setOpen(true); };
-  const prescrever = (a: Athlete) =>
-    navigate({ to: "/athletes/$athleteId/prescribe", params: { athleteId: a.id } });
+  const prescrever = async (a: Athlete) => {
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto para prescrição.");
+        return;
+      }
+
+      navigate({ to: "/athletes/$athleteId/prescribe", params: { athleteId: a.id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir a prescrição.");
+    }
+  };
 
   const handleSave = async (data: FormData) => {
-    if (data.id) {
-      const { error } = await supabase
-        .from("athletes")
-        .update({
-          nome: data.nome, email: data.email, plano: data.plano,
-          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
-        })
-        .eq("id", data.id);
-      if (error) return toast.error(error.message);
-      setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
-      toast.success("Atleta atualizado");
-    } else {
-      const { data: row, error } = await supabase
-        .from("athletes")
-        .insert({
-          nome: data.nome, email: data.email, plano: data.plano,
-          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
-          metrica_label: "Métrica principal", metrica_unidade: "—",
-          telemetria: [{ label: "Sem 1", valor: 0 }, { label: "Sem 2", valor: 0 }] as unknown as never,
-        })
-        .select()
-        .single();
-      if (error || !row) return toast.error(error?.message ?? "Falha ao cadastrar");
-      setList((l) => [rowToAthlete(row as AthleteRow), ...l]);
-      toast.success("Atleta cadastrado");
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto.");
+        return;
+      }
+
+      if (data.id) {
+        const { error } = await supabase
+          .from("athletes")
+          .update({
+            nome: data.nome, email: data.email, plano: data.plano,
+            altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+          })
+          .eq("id", data.id)
+          .eq("tenant_id", verified.profile.tenant_id);
+
+        if (error) return toast.error(error.message);
+        setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+        toast.success("Atleta atualizado");
+      } else {
+        const { data: row, error } = await supabase
+          .from("athletes")
+          .insert({
+            tenant_id: verified.profile.tenant_id,
+            nome: data.nome, email: data.email, plano: data.plano,
+            altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+            metrica_label: "Métrica principal", metrica_unidade: "—",
+            telemetria: [{ label: "Sem 1", valor: 0 }, { label: "Sem 2", valor: 0 }] as unknown as never,
+          })
+          .select()
+          .single();
+
+        if (error || !row) return toast.error(error?.message ?? "Falha ao cadastrar");
+        setList((l) => [rowToAthlete(row as AthleteRow), ...l]);
+        toast.success("Atleta cadastrado");
+      }
+
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o atleta.");
     }
-    setOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("athletes").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    setList((l) => l.filter((x) => x.id !== id));
-    toast.success("Atleta removido");
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("athletes")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", verified.profile.tenant_id);
+
+      if (error) return toast.error(error.message);
+      setList((l) => l.filter((x) => x.id !== id));
+      toast.success("Atleta removido");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível remover o atleta.");
+    }
   };
 
   return (
@@ -148,8 +225,23 @@ function AthletesPage() {
       <Card className="border-border/60 bg-card/60">
         <CardContent className="p-0">
           {loading ? (
-            <div className="grid place-items-center py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-6">
+                  <Skeleton className="h-4 md:col-span-1" />
+                  <Skeleton className="h-4 md:col-span-2" />
+                  <Skeleton className="h-4 md:col-span-1" />
+                  <Skeleton className="h-4 md:col-span-1" />
+                  <Skeleton className="h-9 md:col-span-1" />
+                </div>
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="grid place-items-center px-4 py-16 text-center">
+              <div className="max-w-md space-y-2">
+                <p className="font-medium text-foreground">Não foi possível carregar os atletas.</p>
+                <p className="text-sm text-muted-foreground">{loadError}</p>
+              </div>
             </div>
           ) : (
             <>

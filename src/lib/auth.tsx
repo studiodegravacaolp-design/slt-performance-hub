@@ -21,6 +21,13 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+interface UserProfileRow {
+  user_id: string;
+  tenant_id: string;
+  email: string | null;
+  display_name: string | null;
+}
+
 function baseUser(session: Session | null): AuthUser | null {
   if (!session?.user) return null;
   const email = session.user.email ?? "";
@@ -34,13 +41,66 @@ function baseUser(session: Session | null): AuthUser | null {
   };
 }
 
-async function hydrateOrg(u: AuthUser): Promise<AuthUser> {
-  const { data } = await supabase
-    .from("organizations")
-    .select("name")
-    .eq("owner_id", u.id)
-    .maybeSingle();
-  return data?.name ? { ...u, tenantName: data.name } : u;
+function prettifyUserName(email: string) {
+  return email.split("@")[0].replace(/\W/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Usuário";
+}
+
+export async function getVerifiedUserProfile() {
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) {
+      return { user: null, profile: null, error: authError?.message ?? "Sessão inválida." };
+    }
+
+    const baseEmail = authData.user.email ?? "";
+    const fallbackUser: AuthUser = {
+      id: authData.user.id,
+      email: baseEmail,
+      name: prettifyUserName(baseEmail),
+      role: "admin" as const,
+      tenantId: authData.user.id,
+      tenantName: "Elite Performance Club",
+    };
+
+    const { data: profile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("user_id, tenant_id, email, display_name")
+      .eq("user_id", authData.user.id)
+      .maybeSingle<UserProfileRow>();
+
+    if (profileError) {
+      return { user: fallbackUser, profile: null, error: profileError.message };
+    }
+
+    if (!profile?.tenant_id) {
+      return { user: fallbackUser, profile: null, error: "Perfil do utilizador ainda não foi provisionado." };
+    }
+
+    const { data: orgData, error: orgError } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("owner_id", profile.tenant_id)
+      .maybeSingle();
+
+    return {
+      user: {
+        id: authData.user.id,
+        email: profile.email ?? baseEmail,
+        name: profile.display_name ?? prettifyUserName(profile.email ?? baseEmail),
+        role: "admin" as const,
+        tenantId: profile.tenant_id,
+        tenantName: orgError ? fallbackUser.tenantName : (orgData?.name ?? fallbackUser.tenantName),
+      },
+      profile,
+      error: orgError?.message ?? null,
+    };
+  } catch (error) {
+    return {
+      user: null,
+      profile: null,
+      error: error instanceof Error ? error.message : "Falha ao validar a autenticação.",
+    };
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -48,19 +108,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const apply = (session: Session | null) => {
+    let active = true;
+
+    const apply = async (session: Session | null) => {
+      if (!active) return;
+
       const u = baseUser(session);
+      if (!u) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       setUser(u);
-      if (u) hydrateOrg(u).then(setUser);
-    };
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      apply(session);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      apply(data.session);
+
+      const hydrated = await getVerifiedUserProfile();
+      if (!active) return;
+      setUser(hydrated.user ?? u);
       setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      void apply(session);
     });
-    return () => subscription.unsubscribe();
+
+    supabase.auth.getSession().then(({ data }) => {
+      void apply(data.session);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
 
