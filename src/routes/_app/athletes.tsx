@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Dumbbell, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -131,40 +131,70 @@ function AthletesPage() {
   };
 
   const handleSave = async (data: FormData) => {
-    if (data.id) {
-      const { error } = await supabase
-        .from("athletes")
-        .update({
-          nome: data.nome, email: data.email, plano: data.plano,
-          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
-        })
-        .eq("id", data.id);
-      if (error) return toast.error(error.message);
-      setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
-      toast.success("Atleta atualizado");
-    } else {
-      const { data: row, error } = await supabase
-        .from("athletes")
-        .insert({
-          nome: data.nome, email: data.email, plano: data.plano,
-          altura: data.altura, peso: data.peso, modalidade: data.modalidade,
-          metrica_label: "Métrica principal", metrica_unidade: "—",
-          telemetria: [{ label: "Sem 1", valor: 0 }, { label: "Sem 2", valor: 0 }] as unknown as never,
-        })
-        .select()
-        .single();
-      if (error || !row) return toast.error(error?.message ?? "Falha ao cadastrar");
-      setList((l) => [rowToAthlete(row as AthleteRow), ...l]);
-      toast.success("Atleta cadastrado");
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto.");
+        return;
+      }
+
+      if (data.id) {
+        const { error } = await supabase
+          .from("athletes")
+          .update({
+            nome: data.nome, email: data.email, plano: data.plano,
+            altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+          })
+          .eq("id", data.id)
+          .eq("tenant_id", verified.profile.tenant_id);
+
+        if (error) return toast.error(error.message);
+        setList((l) => l.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+        toast.success("Atleta atualizado");
+      } else {
+        const { data: row, error } = await supabase
+          .from("athletes")
+          .insert({
+            tenant_id: verified.profile.tenant_id,
+            nome: data.nome, email: data.email, plano: data.plano,
+            altura: data.altura, peso: data.peso, modalidade: data.modalidade,
+            metrica_label: "Métrica principal", metrica_unidade: "—",
+            telemetria: [{ label: "Sem 1", valor: 0 }, { label: "Sem 2", valor: 0 }] as unknown as never,
+          })
+          .select()
+          .single();
+
+        if (error || !row) return toast.error(error?.message ?? "Falha ao cadastrar");
+        setList((l) => [rowToAthlete(row as AthleteRow), ...l]);
+        toast.success("Atleta cadastrado");
+      }
+
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o atleta.");
     }
-    setOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("athletes").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    setList((l) => l.filter((x) => x.id !== id));
-    toast.success("Atleta removido");
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("athletes")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", verified.profile.tenant_id);
+
+      if (error) return toast.error(error.message);
+      setList((l) => l.filter((x) => x.id !== id));
+      toast.success("Atleta removido");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível remover o atleta.");
+    }
   };
 
   return (
