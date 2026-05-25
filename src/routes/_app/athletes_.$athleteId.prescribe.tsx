@@ -37,7 +37,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { SPORT_LABEL, rowToAthlete, type Sport, type Athlete, type AthleteRow } from "@/lib/athletes-data";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_app/athletes_/$athleteId/prescribe")({
   component: PrescribePage,
@@ -74,18 +75,90 @@ function PrescribePage() {
   const { user } = useAuth();
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingBlocks, setLoadingBlocks] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await supabase
-        .from("athletes")
-        .select("*")
-        .eq("id", athleteId)
-        .maybeSingle();
-      if (!active) return;
-      setAthlete(data ? rowToAthlete(data as AthleteRow) : null);
-      setLoading(false);
+      setLoading(true);
+      setLoadingBlocks(true);
+      setLoadError(null);
+      setProfileError(null);
+
+      try {
+        const verified = await getVerifiedUserProfile();
+        if (!active) return;
+
+        if (!verified.user || !verified.profile?.tenant_id) {
+          setAthlete(null);
+          setProfileError(verified.error ?? "Perfil do utilizador não está disponível.");
+          return;
+        }
+
+        const [{ data: athleteData, error: athleteError }, { data: workoutData, error: workoutError }] = await Promise.all([
+          supabase
+            .from("athletes")
+            .select("*")
+            .eq("id", athleteId)
+            .eq("tenant_id", verified.profile.tenant_id)
+            .maybeSingle(),
+          supabase
+            .from("workouts")
+            .select("blocks, title, created_at")
+            .eq("athlete_id", athleteId)
+            .eq("tenant_id", verified.profile.tenant_id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+
+        if (!active) return;
+
+        if (athleteError) {
+          setAthlete(null);
+          setLoadError(athleteError.message);
+          toast.error(`Falha ao carregar atleta: ${athleteError.message}`);
+          return;
+        }
+
+        const mappedAthlete = athleteData ? rowToAthlete(athleteData as AthleteRow) : null;
+        setAthlete(mappedAthlete);
+
+        if (!mappedAthlete) {
+          setLoadError("Atleta não encontrado ou sem permissão de acesso.");
+          return;
+        }
+
+        if (workoutError) {
+          setBlocks([{ id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" }]);
+          setLoadError((current) => current ?? `Treino anterior indisponível: ${workoutError.message}`);
+          return;
+        }
+
+        const safeBlocks = Array.isArray(workoutData?.blocks)
+          ? (workoutData?.blocks as Array<Partial<Block>>) : [];
+
+        setBlocks(
+          safeBlocks?.map((block, index) => ({
+            id: typeof block?.id === "string" ? block.id : uid(),
+            nome: typeof block?.nome === "string" && block.nome.trim() ? block.nome : `Bloco ${index + 1}`,
+            detalhe: typeof block?.detalhe === "string" ? block.detalhe : "",
+          })) ?? [],
+        );
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Não foi possível abrir a área de prescrição.";
+        setAthlete(null);
+        setLoadError(message);
+        toast.error(message);
+      } finally {
+        if (active) {
+          setLoading(false);
+          setLoadingBlocks(false);
+        }
+      }
     })();
     return () => { active = false; };
   }, [athleteId]);
@@ -100,8 +173,67 @@ function PrescribePage() {
 
   if (loading) {
     return (
-      <div className="grid place-items-center py-24 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-5 w-40" />
+        </div>
+        <div className="rounded-2xl border border-border/60 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-14 w-14 rounded-2xl" />
+              <div className="space-y-3">
+                <Skeleton className="h-7 w-44" />
+                <Skeleton className="h-4 w-56" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="h-16 w-24" />
+              <Skeleton className="h-16 w-24" />
+              <Skeleton className="h-16 w-24" />
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-[260px] lg:col-span-2" />
+          <Skeleton className="h-[260px]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (profileError || loadError) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate({ to: "/athletes" })}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> Atletas
+          </Button>
+        </div>
+        <Card className="border-border/60 bg-card/60">
+          <CardContent className="grid min-h-[280px] place-items-center p-6 text-center">
+            <div className="max-w-md space-y-2">
+              <p className="font-display text-xl font-semibold">Não foi possível abrir a prescrição.</p>
+              <p className="text-sm text-muted-foreground">{profileError ?? loadError}</p>
+              <div className="flex justify-center gap-2 pt-3">
+                <Button variant="outline" onClick={() => navigate({ to: "/athletes" })}>
+                  Voltar para atletas
+                </Button>
+                <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -129,19 +261,38 @@ function PrescribePage() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("workouts").insert({
-      tenant_id: user.tenantId,
-      athlete_id: athlete.id,
-      sport: athlete.modalidade,
-      title: `Prescrição — ${athlete.nome}`,
-      blocks: blocks as unknown as never,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(`Falha ao salvar: ${error.message}`);
-      return;
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
+        toast.error(verified.error ?? "Perfil do utilizador não está pronto para salvar.");
+        return;
+      }
+
+      const safeBlocks = blocks?.map((block) => ({
+        id: block.id,
+        nome: block.nome,
+        detalhe: block.detalhe,
+      })) ?? [];
+
+      const { error } = await supabase.from("workouts").insert({
+        tenant_id: verified.profile.tenant_id,
+        athlete_id: athlete.id,
+        sport: athlete.modalidade,
+        title: `Prescrição — ${athlete.nome}`,
+        blocks: safeBlocks as unknown as never,
+      });
+
+      if (error) {
+        toast.error(`Falha ao salvar: ${error.message}`);
+        return;
+      }
+
+      toast.success("Prescrição salva no banco de dados");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar a prescrição.");
+    } finally {
+      setSaving(false);
     }
-    toast.success("Prescrição salva no banco de dados");
   };
 
   const trend = useMemo(() => {
@@ -367,7 +518,22 @@ function PrescribePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {blocks.map((b, i) => (
+          {loadingBlocks && (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="rounded-xl border border-border/60 bg-background/40 p-4">
+                  <Skeleton className="mb-3 h-8 w-40" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!loadingBlocks && blocks.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border/60 bg-background/30 p-4 text-sm text-muted-foreground">
+              Nenhum bloco salvo ainda. Você pode iniciar pelo diagnóstico de IA ou adicionar atividades manualmente.
+            </div>
+          )}
+          {!loadingBlocks && (blocks?.map((b, i) => (
             <div
               key={b.id}
               className="rounded-xl border border-border/60 bg-background/40 p-4 animate-fade-in"
@@ -414,7 +580,7 @@ function PrescribePage() {
                 />
               </div>
             </div>
-          ))}
+          )) ?? [])}
           <Button
             variant="outline"
             onClick={() =>
