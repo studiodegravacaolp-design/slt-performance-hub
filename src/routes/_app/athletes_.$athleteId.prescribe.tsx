@@ -40,8 +40,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
 export const Route = createFileRoute("/_app/athletes_/$athleteId/prescribe")({
   component: PrescribePage,
+  errorComponent: ({ error, reset }) => (
+    <RouteErrorBoundary
+      error={error}
+      reset={reset}
+      title="Não foi possível renderizar a prescrição."
+    />
+  ),
+  notFoundComponent: () => (
+    <RouteErrorBoundary
+      error={new Error("Atleta não encontrado ou sem permissão de acesso.")}
+      reset={() => {}}
+      title="Atleta não encontrado."
+    />
+  ),
 });
 
 const SPORT_ICON: Record<Sport, typeof Dumbbell> = {
