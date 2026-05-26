@@ -72,8 +72,8 @@ function AthletesPage() {
   const [editing, setEditing] = useState<Athlete | null>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
   const loadAthletes = useCallback(async () => {
+
     if (!user) {
       setList([]);
       setLoading(false);
