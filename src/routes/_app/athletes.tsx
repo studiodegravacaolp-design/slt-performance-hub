@@ -28,8 +28,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
 export const Route = createFileRoute("/_app/athletes")({
   component: AthletesPage,
+  errorComponent: ({ error, reset }) => (
+    <RouteErrorBoundary
+      error={error}
+      reset={reset}
+      title="Falha ao renderizar a gestão de atletas."
+      backTo="/dashboard"
+      backLabel="Voltar ao dashboard"
+    />
+  ),
 });
 
 const planColors: Record<PlanStatus, string> = {
