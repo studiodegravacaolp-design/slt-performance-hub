@@ -266,7 +266,10 @@ function PrescribePage() {
                 <Button variant="outline" onClick={() => navigate({ to: "/athletes" })}>
                   Voltar para atletas
                 </Button>
-                <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+                <Button onClick={() => void loadPrescription()} className="gap-2">
+                  <RefreshCw className="h-4 w-4" /> Tentar novamente
+                </Button>
+
               </div>
             </div>
           </CardContent>
