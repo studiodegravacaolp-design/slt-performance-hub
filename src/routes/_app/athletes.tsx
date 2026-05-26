@@ -261,11 +261,15 @@ function AthletesPage() {
             </div>
           ) : loadError ? (
             <div className="grid place-items-center px-4 py-16 text-center">
-              <div className="max-w-md space-y-2">
+              <div className="max-w-md space-y-3">
                 <p className="font-medium text-foreground">Não foi possível carregar os atletas.</p>
                 <p className="text-sm text-muted-foreground">{loadError}</p>
+                <Button onClick={() => void loadAthletes()} className="gap-2">
+                  <RefreshCw className="h-4 w-4" /> Tentar novamente
+                </Button>
               </div>
             </div>
+
           ) : (
             <>
           <div className="hidden md:block">
