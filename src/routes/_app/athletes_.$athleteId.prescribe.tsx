@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
   ArrowLeft,
   Sparkles,
@@ -18,7 +19,9 @@ import {
   CalendarCheck,
   Trash2,
   Plus,
+  RefreshCw,
 } from "lucide-react";
+
 import {
   ResponsiveContainer,
   LineChart,
@@ -39,6 +42,8 @@ import { SPORT_LABEL, rowToAthlete, type Sport, type Athlete, type AthleteRow } 
 import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withRetry } from "@/lib/retry";
+
 
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -95,92 +100,6 @@ function PrescribePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [blocksWarning, setBlocksWarning] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      setLoadingBlocks(true);
-      setLoadError(null);
-      setBlocksWarning(null);
-      setProfileError(null);
-
-      try {
-        const verified = await getVerifiedUserProfile();
-        if (!active) return;
-
-        if (!verified.user || !verified.profile?.tenant_id) {
-          setAthlete(null);
-          setProfileError(verified.error ?? "Perfil do utilizador não está disponível.");
-          return;
-        }
-
-        const [{ data: athleteData, error: athleteError }, { data: workoutData, error: workoutError }] = await Promise.all([
-          supabase
-            .from("athletes")
-            .select("*")
-            .eq("id", athleteId)
-            .eq("tenant_id", verified.profile.tenant_id)
-            .maybeSingle(),
-          supabase
-            .from("workouts")
-            .select("blocks, title, created_at")
-            .eq("athlete_id", athleteId)
-            .eq("tenant_id", verified.profile.tenant_id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-        ]);
-
-        if (!active) return;
-
-        if (athleteError) {
-          setAthlete(null);
-          setLoadError(athleteError.message);
-          toast.error(`Falha ao carregar atleta: ${athleteError.message}`);
-          return;
-        }
-
-        const mappedAthlete = athleteData ? rowToAthlete(athleteData as AthleteRow) : null;
-        setAthlete(mappedAthlete);
-
-        if (!mappedAthlete) {
-          setLoadError("Atleta não encontrado ou sem permissão de acesso.");
-          return;
-        }
-
-        if (workoutError) {
-          setBlocks([{ id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" }]);
-          setBlocksWarning(`Treino anterior indisponível: ${workoutError.message}`);
-          return;
-        }
-
-        const safeBlocks = Array.isArray(workoutData?.blocks)
-          ? (workoutData?.blocks as Array<Partial<Block>>) : [];
-
-        setBlocks(
-          safeBlocks?.map((block, index) => ({
-            id: typeof block?.id === "string" ? block.id : uid(),
-            nome: typeof block?.nome === "string" && block.nome.trim() ? block.nome : `Bloco ${index + 1}`,
-            detalhe: typeof block?.detalhe === "string" ? block.detalhe : "",
-          })) ?? [],
-        );
-      } catch (error) {
-        if (!active) return;
-        const message = error instanceof Error ? error.message : "Não foi possível abrir a área de prescrição.";
-        setAthlete(null);
-        setLoadError(message);
-        toast.error(message);
-      } finally {
-        if (active) {
-          setLoading(false);
-          setLoadingBlocks(false);
-        }
-      }
-    })();
-    return () => { active = false; };
-  }, [athleteId]);
-
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
@@ -188,6 +107,106 @@ function PrescribePage() {
   const [blocks, setBlocks] = useState<Block[]>([
     { id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" },
   ]);
+
+  const loadPrescription = useCallback(async () => {
+    setLoading(true);
+    setLoadingBlocks(true);
+    setLoadError(null);
+    setBlocksWarning(null);
+    setProfileError(null);
+
+    try {
+      const verified = await getVerifiedUserProfile();
+
+      if (!verified.user || !verified.profile?.tenant_id) {
+        setAthlete(null);
+        setProfileError(verified.error ?? "Perfil do utilizador não está disponível.");
+        return;
+      }
+
+      const tenantId = verified.profile.tenant_id;
+      const [athleteRes, workoutRes] = await Promise.all([
+        withRetry(
+          async () =>
+            await supabase
+              .from("athletes")
+              .select("*")
+              .eq("id", athleteId)
+              .eq("tenant_id", tenantId)
+              .maybeSingle(),
+          { onAttempt: (n) => toast.message(`Reconectando (tentativa ${n})...`) },
+        ),
+        withRetry(
+          async () =>
+            await supabase
+              .from("workouts")
+              .select("blocks, title, created_at")
+              .eq("athlete_id", athleteId)
+              .eq("tenant_id", tenantId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+        ),
+      ]);
+
+      const { data: athleteData, error: athleteError } = athleteRes;
+      const { data: workoutData, error: workoutError } = workoutRes;
+
+      if (athleteError) {
+        setAthlete(null);
+        setLoadError(athleteError.message);
+        toast.error(`Falha ao carregar atleta: ${athleteError.message}`);
+        return;
+      }
+
+      const mappedAthlete = athleteData ? rowToAthlete(athleteData as AthleteRow) : null;
+      setAthlete(mappedAthlete);
+
+      if (!mappedAthlete) {
+        setLoadError("Atleta não encontrado ou sem permissão de acesso.");
+        return;
+      }
+
+      if (workoutError) {
+        setBlocks([{ id: uid(), nome: "Aquecimento", detalhe: "10 min — mobilidade geral, ativação neural" }]);
+        setBlocksWarning(`Treino anterior indisponível: ${workoutError.message}`);
+        return;
+      }
+
+      const safeBlocks = Array.isArray(workoutData?.blocks)
+        ? (workoutData?.blocks as Array<Partial<Block>>) : [];
+
+      setBlocks(
+        safeBlocks?.map((block, index) => ({
+          id: typeof block?.id === "string" ? block.id : uid(),
+          nome: typeof block?.nome === "string" && block.nome.trim() ? block.nome : `Bloco ${index + 1}`,
+          detalhe: typeof block?.detalhe === "string" ? block.detalhe : "",
+        })) ?? [],
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível abrir a área de prescrição.";
+      setAthlete(null);
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+      setLoadingBlocks(false);
+    }
+  }, [athleteId]);
+
+  useEffect(() => {
+    void loadPrescription();
+  }, [loadPrescription]);
+
+  const trend = useMemo(() => {
+    if (!athlete) return { delta: 0, pct: 0, up: true };
+    const first = athlete.telemetria[0]?.valor ?? 0;
+    const last = athlete.telemetria.at(-1)?.valor ?? 0;
+    const delta = last - first;
+    const pct = first ? (delta / first) * 100 : 0;
+    return { delta, pct, up: delta >= 0 };
+  }, [athlete]);
+
 
   if (loading) {
     return (
@@ -247,7 +266,10 @@ function PrescribePage() {
                 <Button variant="outline" onClick={() => navigate({ to: "/athletes" })}>
                   Voltar para atletas
                 </Button>
-                <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+                <Button onClick={() => void loadPrescription()} className="gap-2">
+                  <RefreshCw className="h-4 w-4" /> Tentar novamente
+                </Button>
+
               </div>
             </div>
           </CardContent>
@@ -292,13 +314,18 @@ function PrescribePage() {
         detalhe: block.detalhe,
       })) ?? [];
 
-      const { error } = await supabase.from("workouts").insert({
-        tenant_id: verified.profile.tenant_id,
-        athlete_id: athlete.id,
-        sport: athlete.modalidade,
-        title: `Prescrição — ${athlete.nome}`,
-        blocks: safeBlocks as unknown as never,
-      });
+      const { error } = await withRetry(
+        async () =>
+          await supabase.from("workouts").insert({
+            tenant_id: verified.profile!.tenant_id,
+            athlete_id: athlete.id,
+            sport: athlete.modalidade,
+            title: `Prescrição — ${athlete.nome}`,
+            blocks: safeBlocks as unknown as never,
+          }),
+        { onAttempt: (n) => toast.message(`Reconectando para salvar (tentativa ${n})...`) },
+      );
+
 
       if (error) {
         toast.error(`Falha ao salvar: ${error.message}`);
@@ -313,13 +340,8 @@ function PrescribePage() {
     }
   };
 
-  const trend = useMemo(() => {
-    const first = athlete.telemetria[0]?.valor ?? 0;
-    const last = athlete.telemetria.at(-1)?.valor ?? 0;
-    const delta = last - first;
-    const pct = first ? (delta / first) * 100 : 0;
-    return { delta, pct, up: delta >= 0 };
-  }, [athlete]);
+
+
 
   const runDiagnosis = () => {
     setAiLoading(true);

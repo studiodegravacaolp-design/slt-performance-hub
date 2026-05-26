@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Dumbbell, Pencil, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Search, Dumbbell, Pencil, Trash2, RefreshCw } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withRetry } from "@/lib/retry";
+
 
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
@@ -69,56 +72,65 @@ function AthletesPage() {
   const [editing, setEditing] = useState<Athlete | null>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
+  const loadAthletes = useCallback(async () => {
+
     if (!user) {
       setList([]);
       setLoading(false);
       return;
     }
-
-    let active = true;
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-
-      try {
-        const verified = await getVerifiedUserProfile();
-        if (!active) return;
-
-        if (!verified.user || !verified.profile?.tenant_id) {
-          setList([]);
-          setLoadError(verified.error ?? "Sessão inválida para carregar atletas.");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("athletes")
-          .select("*")
-          .eq("tenant_id", verified.profile.tenant_id)
-          .order("created_at", { ascending: false });
-
-        if (!active) return;
-
-        if (error) {
-          setList([]);
-          setLoadError(error.message);
-          toast.error(`Falha ao carregar atletas: ${error.message}`);
-          return;
-        }
-
-        setList(((data ?? []) as AthleteRow[]).map(rowToAthlete));
-      } catch (error) {
-        if (!active) return;
-        const message = error instanceof Error ? error.message : "Não foi possível carregar os atletas.";
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const verified = await getVerifiedUserProfile();
+      if (!verified.user || !verified.profile?.tenant_id) {
         setList([]);
-        setLoadError(message);
-        toast.error(message);
-      } finally {
-        if (active) setLoading(false);
+        setLoadError(verified.error ?? "Sessão inválida para carregar atletas.");
+        return;
       }
-    })();
-    return () => { active = false; };
+
+      const { data, error } = await withRetry(
+        async () =>
+          await supabase
+            .from("athletes")
+            .select("*")
+            .eq("tenant_id", verified.profile!.tenant_id)
+            .order("created_at", { ascending: false }),
+        {
+          onAttempt: (n) => toast.message(`Reconectando ao servidor (tentativa ${n})...`),
+        },
+      );
+
+
+      if (error) {
+        setList([]);
+        setLoadError(error.message);
+        toast.error(`Falha ao carregar atletas: ${error.message}`);
+        return;
+      }
+
+      setList(((data ?? []) as AthleteRow[]).map(rowToAthlete));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível carregar os atletas.";
+      setList([]);
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      await loadAthletes();
+      if (!active) return;
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadAthletes]);
+
 
   const filtered = useMemo(
     () => list.filter((a) => a.nome.toLowerCase().includes(q.toLowerCase()) || a.email.includes(q.toLowerCase())),
@@ -249,11 +261,15 @@ function AthletesPage() {
             </div>
           ) : loadError ? (
             <div className="grid place-items-center px-4 py-16 text-center">
-              <div className="max-w-md space-y-2">
+              <div className="max-w-md space-y-3">
                 <p className="font-medium text-foreground">Não foi possível carregar os atletas.</p>
                 <p className="text-sm text-muted-foreground">{loadError}</p>
+                <Button onClick={() => void loadAthletes()} className="gap-2">
+                  <RefreshCw className="h-4 w-4" /> Tentar novamente
+                </Button>
               </div>
             </div>
+
           ) : (
             <>
           <div className="hidden md:block">
