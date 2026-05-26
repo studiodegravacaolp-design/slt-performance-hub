@@ -90,8 +90,8 @@ function AthletesPage() {
       }
 
       const { data, error } = await withRetry(
-        () =>
-          supabase
+        async () =>
+          await supabase
             .from("athletes")
             .select("*")
             .eq("tenant_id", verified.profile!.tenant_id)
@@ -100,6 +100,7 @@ function AthletesPage() {
           onAttempt: (n) => toast.message(`Reconectando ao servidor (tentativa ${n})...`),
         },
       );
+
 
       if (error) {
         setList([]);
