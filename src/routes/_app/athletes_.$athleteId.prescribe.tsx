@@ -42,6 +42,8 @@ import { SPORT_LABEL, rowToAthlete, type Sport, type Athlete, type AthleteRow } 
 import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedUserProfile, useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withRetry } from "@/lib/retry";
+
 
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
