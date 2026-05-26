@@ -332,13 +332,8 @@ function PrescribePage() {
     }
   };
 
-  const trend = useMemo(() => {
-    const first = athlete.telemetria[0]?.valor ?? 0;
-    const last = athlete.telemetria.at(-1)?.valor ?? 0;
-    const delta = last - first;
-    const pct = first ? (delta / first) * 100 : 0;
-    return { delta, pct, up: delta >= 0 };
-  }, [athlete]);
+
+
 
   const runDiagnosis = () => {
     setAiLoading(true);
