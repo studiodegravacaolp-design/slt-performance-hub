@@ -314,13 +314,18 @@ function PrescribePage() {
         detalhe: block.detalhe,
       })) ?? [];
 
-      const { error } = await supabase.from("workouts").insert({
-        tenant_id: verified.profile.tenant_id,
-        athlete_id: athlete.id,
-        sport: athlete.modalidade,
-        title: `Prescrição — ${athlete.nome}`,
-        blocks: safeBlocks as unknown as never,
-      });
+      const { error } = await withRetry(
+        async () =>
+          await supabase.from("workouts").insert({
+            tenant_id: verified.profile!.tenant_id,
+            athlete_id: athlete.id,
+            sport: athlete.modalidade,
+            title: `Prescrição — ${athlete.nome}`,
+            blocks: safeBlocks as unknown as never,
+          }),
+        { onAttempt: (n) => toast.message(`Reconectando para salvar (tentativa ${n})...`) },
+      );
+
 
       if (error) {
         toast.error(`Falha ao salvar: ${error.message}`);
