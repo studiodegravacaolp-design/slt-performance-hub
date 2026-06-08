@@ -13,3 +13,4 @@ export default defineConfig({
     server: { entry: "server" },
   },
 });
+// Forçando build atualizado Vercel
