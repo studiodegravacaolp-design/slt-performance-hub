@@ -1,7 +1,7 @@
 {
   "framework": "nitro",
   "buildCommand": "vite build",
-  "outputDirectory": "dist",
+  "outputDirectory": ".vercel/output",
   "installCommand": "npm ci",
   "regions": ["gru1"]
 }
