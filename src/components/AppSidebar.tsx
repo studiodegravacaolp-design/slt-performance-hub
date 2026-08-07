@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Organizações", url: "/organizations", icon: Building2 },
+  { title: "Empresa e filiais", url: "/organizations", icon: Building2 },
   { title: "Atletas", url: "/athletes", icon: Users },
   { title: "Treinos", url: "/workouts", icon: Dumbbell },
 ] as const;
