@@ -43,10 +43,10 @@ O Criador Humano autorizou expressamente o Gate R-F. Esta autorização é uma d
 
 O branch contém a configuração pública do novo P0. O corte de produção somente será declarado concluído após merge/deploy e teste de login real. Até lá, o legado continua íntegro e disponível para rollback.
 
-## Bloqueio de publicação
+## Publicação para revisão
 
-O commit local `419ccba` foi produzido no branch `phase-00.18-p0-c-sql`. O push HTTPS não pôde autenticar e o aplicativo GitHub conectado recusou a criação de branch/commit com `403 Resource not accessible by integration`. Portanto, nenhum commit chegou ao GitHub e o branch `main` permaneceu inalterado. A publicação depende de autenticar o GitHub CLI ou conceder permissão de escrita de conteúdo ao aplicativo conectado.
+O bloqueio de permissão foi resolvido pela instalação do `ChatGPT Codex Connector` com acesso de leitura e escrita restrito ao repositório `studiodegravacaolp-design/slt-performance-hub`. Os 17 arquivos aprovados foram publicados no branch remoto `phase-00.18-p0-c-sql`, commit `964279c5bb4581fd94a722fbb3943c564f266415`, e o Pull Request rascunho [#1](https://github.com/studiodegravacaolp-design/slt-performance-hub/pull/1) foi aberto contra `main`. O PR está sem conflitos. O branch `main` permanece inalterado e nenhum cutover foi executado.
 
 ## STATUS
 
-**IMPLEMENTATION READY — PUBLICATION BLOCKED BY GITHUB PERMISSION — CUTOVER PENDING**
+**IMPLEMENTATION PUBLISHED FOR REVIEW — CUTOVER PENDING**
